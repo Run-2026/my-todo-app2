@@ -40,7 +40,7 @@ export default function GoalsPage() {
         description: newGoal.description,
         type: newGoal.type,
         deadline: newGoal.deadline || null,
-      }])
+      } as any])
       .select()
 
     if (!error && data) {

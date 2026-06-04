@@ -55,7 +55,7 @@ export default function DietPage() {
 
     const { data, error } = await supabase
       .from('diet_logs')
-      .insert([insertData])
+      .insert([insertData as any])
       .select()
 
     if (!error && data) {

@@ -65,7 +65,7 @@ export default function SchedulePage() {
         start_time: newSchedule.start_time,
         end_time: newSchedule.end_time,
         days_of_week: newSchedule.days_of_week,
-      }])
+      } as any])
       .select()
 
     if (!error && data) {
