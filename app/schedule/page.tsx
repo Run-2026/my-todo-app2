@@ -59,7 +59,13 @@ export default function SchedulePage() {
 
     const { data, error } = await supabase
       .from('schedules')
-      .insert([newSchedule])
+      .insert([{
+        title: newSchedule.title,
+        type: newSchedule.type,
+        start_time: newSchedule.start_time,
+        end_time: newSchedule.end_time,
+        days_of_week: newSchedule.days_of_week,
+      }])
       .select()
 
     if (!error && data) {

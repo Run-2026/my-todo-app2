@@ -46,9 +46,16 @@ export default function DietPage() {
     e.preventDefault()
     if (!newLog.food_name.trim() || newLog.calories <= 0) return
 
+    const insertData = {
+      meal_type: newLog.meal_type,
+      food_name: newLog.food_name,
+      calories: newLog.calories,
+      date: selectedDate,
+    }
+
     const { data, error } = await supabase
       .from('diet_logs')
-      .insert([{ ...newLog, date: selectedDate }])
+      .insert([insertData])
       .select()
 
     if (!error && data) {

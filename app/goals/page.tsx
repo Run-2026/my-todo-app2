@@ -35,7 +35,12 @@ export default function GoalsPage() {
 
     const { data, error } = await supabase
       .from('goals')
-      .insert([newGoal])
+      .insert([{
+        title: newGoal.title,
+        description: newGoal.description,
+        type: newGoal.type,
+        deadline: newGoal.deadline || null,
+      }])
       .select()
 
     if (!error && data) {
