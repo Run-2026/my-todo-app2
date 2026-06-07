@@ -39,20 +39,30 @@ export default function Dashboard() {
       .order('created_at', { ascending: true })
     
     // 获取随机每日建议
-    const { data: tipsData } = await supabase
-      .from('daily_tips')
-      .select('*')
+    try {
+      const { data: tipsData } = await supabase
+        .from('daily_tips')
+        .select('*')
+      
+      if (tipsData && tipsData.length > 0) {
+        const dayIndex = new Date().getDate() % tipsData.length
+        setTodayTip(tipsData[dayIndex])
+      }
+    } catch {
+      // 数据库不可用时，使用静态备选
+      const fallback = [
+        { id: 'f1', content: '早餐是一天中最重要的一餐，记得吃富含蛋白质的食物！', category: '饮食', created_at: '' },
+        { id: 'f2', content: '每天步行6000步以上可以显著降低心血管疾病风险。', category: '运动', created_at: '' },
+      ]
+      const dayIndex = new Date().getDate() % fallback.length
+      setTodayTip(fallback[dayIndex])
+    }
     
     if (goalsData) setGoals(goalsData)
     if (dietData) {
       setDietLogs(dietData)
       const total = dietData.reduce((sum, item) => sum + item.calories, 0)
       setTodayCalories(total)
-    }
-    if (tipsData && tipsData.length > 0) {
-      // 根据日期选择一条，这样每天显示同一条
-      const dayIndex = new Date().getDate() % tipsData.length
-      setTodayTip(tipsData[dayIndex])
     }
     
     setLoading(false)

@@ -15,31 +15,76 @@ const categories = {
   心理健康: { icon: <Heart className="w-5 h-5 text-pink-500" />, label: '心理', color: 'bg-pink-50' },
 }
 
+// 静态备选建议数据，当数据库不可用时兜底
+const fallbackTips: DailyTip[] = [
+  { id: 'f1', content: '早餐是一天中最重要的一餐，记得吃富含蛋白质的食物！', category: '饮食', created_at: '' },
+  { id: 'f2', content: '每天步行6000步以上可以显著降低心血管疾病风险。', category: '运动', created_at: '' },
+  { id: 'f3', content: '睡前一小时远离电子屏幕，可以提高睡眠质量。', category: '睡眠', created_at: '' },
+  { id: 'f4', content: '喝水时加一片柠檬，既补充维生素C又增加饮水量。', category: '饮食', created_at: '' },
+  { id: 'f5', content: '工作45分钟后站起来伸展5分钟，保护颈椎和腰椎。', category: '健康', created_at: '' },
+  { id: 'f6', content: '深呼吸三次：吸气4秒，屏息4秒，呼气6秒，立即缓解压力。', category: '放松', created_at: '' },
+  { id: 'f7', content: '吃七分饱就好，给肠胃留点空间，身体会更轻松。', category: '饮食', created_at: '' },
+  { id: 'f8', content: '周末安排一次户外活动，阳光是最好的情绪调节剂。', category: '心理健康', created_at: '' },
+  { id: 'f9', content: '睡前泡脚15分钟，水温40°C左右，促进全身血液循环。', category: '睡眠', created_at: '' },
+  { id: 'f10', content: '今天试试冥想5分钟，专注呼吸，什么也不想。', category: '放松', created_at: '' },
+  { id: 'f11', content: '用白开水代替含糖饮料，一个月能减少摄入约2kg糖分。', category: '饮食', created_at: '' },
+  { id: 'f12', content: '午餐后散步10分钟，比坐着刷手机更有利于消化。', category: '健康', created_at: '' },
+  { id: 'f13', content: '给自己定个睡觉闹钟，到点就准备休息，规律作息比补觉更重要。', category: '睡眠', created_at: '' },
+  { id: 'f14', content: '每天感恩三件小事，幸福感会悄然提升。', category: '心理健康', created_at: '' },
+  { id: 'f15', content: '坚果虽好，但每天一小把就够了，热量很高哦。', category: '饮食', created_at: '' },
+]
+
 export default function TipsPage() {
   const [tips, setTips] = useState<DailyTip[]>([])
   const [todayTip, setTodayTip] = useState<DailyTip | null>(null)
   const [loading, setLoading] = useState(true)
+  const [useFallback, setUseFallback] = useState(false)
 
   useEffect(() => {
     fetchTips()
   }, [])
 
   async function fetchTips() {
-    const { data } = await supabase.from('daily_tips').select('*')
-    if (data) {
-      setTips(data)
-      const dayIndex = new Date().getDate() % data.length
-      setTodayTip(data[dayIndex])
+    try {
+      const { data, error } = await supabase.from('daily_tips').select('*')
+      if (error) throw error
+      if (data && data.length > 0) {
+        setTips(data)
+        const dayIndex = new Date().getDate() % data.length
+        setTodayTip(data[dayIndex])
+      } else {
+        loadFallback()
+      }
+    } catch {
+      loadFallback()
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
+  }
+
+  function loadFallback() {
+    setUseFallback(true)
+    setTips(fallbackTips)
+    const dayIndex = new Date().getDate() % fallbackTips.length
+    setTodayTip(fallbackTips[dayIndex])
   }
 
   async function refreshTip() {
-    const { data } = await supabase.from('daily_tips').select('*')
-    if (data && data.length > 0) {
-      const random = data[Math.floor(Math.random() * data.length)]
-      setTodayTip(random)
+    try {
+      if (!useFallback) {
+        const { data, error } = await supabase.from('daily_tips').select('*')
+        if (error) throw error
+        if (data && data.length > 0) {
+          const random = data[Math.floor(Math.random() * data.length)]
+          setTodayTip(random)
+          return
+        }
+      }
+    } catch {
+      // 降级到备选数据
     }
+    const random = fallbackTips[Math.floor(Math.random() * fallbackTips.length)]
+    setTodayTip(random)
   }
 
   function getCategoryInfo(category: string) {
