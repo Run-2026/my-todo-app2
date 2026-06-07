@@ -3,12 +3,51 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Goal } from '@/types'
-import { Plus, Trash2, CheckCircle2, Circle, Calendar } from 'lucide-react'
+import { Plus, Trash2, CheckCircle2, Circle, Calendar, Sparkles, Loader2 } from 'lucide-react'
+
+const goalScheduleMap: Record<string, { type: string; title: string; start: string; end: string }[]> = {
+  '减重': [
+    { type: 'exercise', title: '晨跑30分钟', start: '07:00', end: '07:30' },
+    { type: 'diet', title: '低脂早餐', start: '08:00', end: '08:30' },
+    { type: 'exercise', title: '力量训练', start: '18:00', end: '19:00' },
+  ],
+  '增肌': [
+    { type: 'exercise', title: '力量训练', start: '07:00', end: '08:30' },
+    { type: 'diet', title: '高蛋白早餐', start: '08:30', end: '09:00' },
+    { type: 'diet', title: '蛋白加餐', start: '15:00', end: '15:30' },
+  ],
+  '跑步': [
+    { type: 'exercise', title: '跑步训练', start: '06:30', end: '07:30' },
+    { type: 'relax', title: '拉伸放松', start: '07:30', end: '08:00' },
+  ],
+  '睡眠': [
+    { type: 'sleep', title: '准备入睡', start: '22:30', end: '23:00' },
+    { type: 'sleep', title: '睡眠时间', start: '23:00', end: '07:00' },
+  ],
+  '饮食': [
+    { type: 'diet', title: '健康早餐', start: '07:30', end: '08:00' },
+    { type: 'diet', title: '均衡午餐', start: '12:00', end: '12:30' },
+    { type: 'diet', title: '轻盈晚餐', start: '18:00', end: '18:30' },
+  ],
+  '运动': [
+    { type: 'exercise', title: '日常锻炼', start: '17:00', end: '18:00' },
+    { type: 'relax', title: '运动后拉伸', start: '18:00', end: '18:15' },
+  ],
+}
+
+function matchGoal(title: string): string | null {
+  for (const key of Object.keys(goalScheduleMap)) {
+    if (title.includes(key)) return key
+  }
+  return null
+}
 
 export default function GoalsPage() {
   const [goals, setGoals] = useState<Goal[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [genResult, setGenResult] = useState('')
   const [newGoal, setNewGoal] = useState({
     title: '',
     description: '',
@@ -50,6 +89,49 @@ export default function GoalsPage() {
     }
   }
 
+  async function generatePlan(goal: Goal) {
+    setGenerating(true)
+    setGenResult('')
+
+    const keyword = matchGoal(goal.title)
+    const templates = keyword ? goalScheduleMap[keyword] : [
+      { type: 'exercise', title: `${goal.title} - 每日练习`, start: '08:00', end: '09:00' },
+      { type: 'diet', title: `${goal.title} - 饮食计划`, start: '12:00', end: '12:30' },
+    ]
+
+    let created = 0
+    for (const tpl of templates) {
+      const { error } = await supabase.from('schedules').insert([{
+        title: tpl.title,
+        type: tpl.type,
+        start_time: tpl.start,
+        end_time: tpl.end,
+        days_of_week: [1, 2, 3, 4, 5],
+      } as any])
+      if (!error) created++
+    }
+
+    if (goal.title.includes('饮食') || goal.title.includes('减重') || goal.title.includes('增肌')) {
+      const dietSuggestions = [
+        { food_name: '鸡胸肉', calories: 248, meal_type: 'lunch' },
+        { food_name: '西兰花', calories: 51, meal_type: 'lunch' },
+        { food_name: '全麦面包', calories: 247, meal_type: 'breakfast' },
+      ]
+      const today = new Date().toISOString().split('T')[0]
+      for (const ds of dietSuggestions) {
+        await supabase.from('diet_logs').insert([{
+          food_name: ds.food_name,
+          calories: ds.calories,
+          meal_type: ds.meal_type,
+          date: today,
+        } as any])
+      }
+    }
+
+    setGenResult(`已为「${goal.title}」生成 ${created} 条日程${goal.title.includes('饮食') || goal.title.includes('减重') || goal.title.includes('增肌') ? '和饮食建议' : ''}`)
+    setGenerating(false)
+  }
+
   async function toggleStatus(id: string, currentStatus: string) {
     const newStatus = currentStatus === 'active' ? 'completed' : 'active'
     const { error } = await supabase
@@ -86,6 +168,13 @@ export default function GoalsPage() {
           <span>新建目标</span>
         </button>
       </div>
+
+      {genResult && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 text-green-800 flex items-center space-x-2">
+          <Sparkles className="w-5 h-5" />
+          <span>{genResult}</span>
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={addGoal} className="bg-white rounded-xl shadow-sm p-6 mb-6">
@@ -156,7 +245,6 @@ export default function GoalsPage() {
         </form>
       )}
 
-      {/* 进行中的目标 */}
       <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
         <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
           <Circle className="w-5 h-5 text-primary-500 mr-2" />
@@ -184,19 +272,29 @@ export default function GoalsPage() {
                     {goal.deadline && <span>截止：{goal.deadline}</span>}
                   </div>
                 </div>
-                <button
-                  onClick={() => deleteGoal(goal.id)}
-                  className="text-gray-400 hover:text-red-500 transition"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => generatePlan(goal)}
+                    disabled={generating}
+                    className="flex items-center space-x-1 px-3 py-1.5 text-sm bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition disabled:opacity-50"
+                    title="AI 生成日程和饮食计划"
+                  >
+                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    <span>生成计划</span>
+                  </button>
+                  <button
+                    onClick={() => deleteGoal(goal.id)}
+                    className="text-gray-400 hover:text-red-500 transition"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* 已完成的目标 */}
       {completedGoals.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
